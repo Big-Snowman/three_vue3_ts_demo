@@ -128,7 +128,6 @@ const water = new Water(waterGeometry, {
 })
 water.rotation.x = -Math.PI / 2
 water.position.y = -0.4
-
 scene.add(water)
 
 // 添加平行光
@@ -174,7 +173,6 @@ for(let i = 0; i < 3; i++) {
     Math.cos((i * 2 * Math.PI) / 3),
     radius * Math.sin((i * 2 * Math.PI) / 3)
   )
-
   sphereMesh.add(pointLight)
   pointLightGroup.add(sphereMesh)
 }
@@ -203,7 +201,104 @@ gsap.to(options, {
       // );
     });
   },
-});
+})
+
+// 使用补间动画移动相机
+const timeLine1 = gsap.timeline()
+const timeLine2 = gsap.timeline()
+
+// 定义相机移动函数
+function translateCamera(position: THREE.Vector3, target: THREE.Vector3) {
+  timeLine1.to(camera.position, {
+    x: position.x,
+    y: position.y,
+    z: position.z,
+    duration: 1,
+    ease: 'power2.inOut'
+  })
+  timeLine2.to(controls.target, {
+    x: target.x,
+    y: target.y,
+    z: target.z,
+    duration: 1,
+    ease: 'power2.inOut'
+  })
+}
+
+const scenes = [
+  {
+    text: '新年快乐',
+    callback: () => {
+      // 执行函数切换位置
+      translateCamera(
+        new THREE.Vector3(-3.23, 3, 4.06),
+        new THREE.Vector3(-8, 2, 0)
+        )
+    }
+  },
+  {
+    text: '元宵快乐',
+    callback: () => {
+      // 执行函数切换位置
+      translateCamera(
+        new THREE.Vector3(7, 0, 23),
+        new THREE.Vector3(0, 0, 0)
+      )
+    }
+  },
+  {
+    text: '五一快乐',
+    callback: () => {
+      // 执行函数切换位置
+      translateCamera(
+        new THREE.Vector3(10, 3, 0),
+        new THREE.Vector3(5, 2, 0)
+      )
+    }
+  },
+  {
+    text: '中秋快乐',
+    callback: () => {
+      // 执行函数切换位置
+      translateCamera(
+        new THREE.Vector3(7, 0, 23),
+        new THREE.Vector3(0, 0, 0)
+      )
+    }
+  },
+  {
+    text: '国庆快乐',
+    callback: () => {
+      // 执行函数切换位置
+      translateCamera(
+        new THREE.Vector3(-20, 1.3, 6.6),
+        new THREE.Vector3(5, 2, 0)
+      )
+    }
+  }
+]
+// 防抖 间隔时间变量
+let isAnimate = false
+const index = ref(0)
+// 监听鼠标滚轮事件
+window.addEventListener('wheel', (e) => {
+  if(isAnimate) return
+  isAnimate = true
+  console.log(e);
+  if(e.deltaY > 0) {
+    index.value++
+    if(index.value > scenes.length - 1) {
+      index.value = 0
+    }
+    scenes[index.value].callback()
+    console.log(index.value);
+    
+  }
+  setTimeout(() => {
+    isAnimate = false
+  }, 1000)
+})
+
 
 
 </script>
