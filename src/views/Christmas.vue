@@ -1,5 +1,12 @@
 <template>
   <div class="christmas-home">
+    <div class="text" :style="{transform: `translateY(${-index * 100}vh)`}">
+      <div v-for="item in scenes" style="width: 100vw; height: 100vh;">
+        <h1>
+          {{ item.text }}
+        </h1>
+      </div>
+    </div>
     <div class="christmas-container" ref="christmasCanvasDom">
     </div>
   </div>
@@ -36,8 +43,8 @@ window.addEventListener('resize', () => {
 const scene = new THREE.Scene()
 // 初始化相机
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-// camera.position.set(-3.23, 2.98, 4.06)
-camera.position.set(-12, 3, 0)
+camera.position.set(-3.23, 3, 4)
+// camera.position.set(-12, 3, 0)
 // 设置了相机的宽高比后更新相机的投影矩阵
 camera.updateProjectionMatrix()
 // 初始化渲染器
@@ -70,6 +77,7 @@ const render = () => {
 
 // 初始化轨道控制器
 const controls = new OrbitControls(camera, renderer.domElement)
+controls.target.set(0, 0, 0)
 controls.enableDamping = true
 
 onMounted(() => {
@@ -120,8 +128,10 @@ gltfLoader.load('./model/scene.glb', (gltf: Gltf) => {
 
 const waterGeometry = new THREE.CircleGeometry(200, 18)
 const water = new Water(waterGeometry, {
-  textureWidth: 1024,
-  textureHeight: 1024,
+  textureWidth: 256,
+  textureHeight: 256,
+  // textureWidth: 1024,
+  // textureHeight: 1024,
   color: 0xeeeeff,
   flowDirection: new THREE.Vector2(1, 1),
   scale: 10
@@ -149,8 +159,9 @@ pointLightGroup.position.set(-8, 2.5, -1.5)
 const radius = 3
 const pointLightArr: THREE.Mesh[] = []
 
-for(let i = 0; i < 3; i++) {
-  const sphereGeometry = new THREE.SphereGeometry(0.2, 32, 32)
+for(let i = 0; i < 1; i++) {
+// for(let i = 0; i < 3; i++) {
+  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32)
   const sphereMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     // 材质的放射（光）颜色，基本上是不受其他光照影响的固有颜色。默认为黑色。
@@ -165,9 +176,9 @@ for(let i = 0; i < 3; i++) {
   // 用来偏置阴影的位置。当你使用非常薄的对象时，
   // 可以使用它来解决一些奇怪的效果。如果你看到奇怪的阴影效果，
   // 将该属性设置为很小的值（例如 -0.0008）通常可以解决问题。此属性的默认值为 0。
-  pointLight.shadow.bias = -0.0008;  
-  // pointLight.shadow.mapSize.width=1024
-  // pointLight.shadow.mapSize.height=1024
+  pointLight.shadow.bias = -0.0008;
+  // pointLight.shadow.mapSize.width = 2048
+  // pointLight.shadow.mapSize.height = 2048
   sphereMesh.position.set(
     radius * Math.cos((i * 2 * Math.PI) / 3),
     Math.cos((i * 2 * Math.PI) / 3),
@@ -264,6 +275,7 @@ const scenes = [
         new THREE.Vector3(7, 0, 23),
         new THREE.Vector3(0, 0, 0)
       )
+      makeHeart()
     }
   },
   {
@@ -299,10 +311,94 @@ window.addEventListener('wheel', (e) => {
   }, 1000)
 })
 
+// 实例化创建满天星
+// 下面是一种具有实例化渲染支持的特殊版本的Mesh。你可以使用 InstancedMesh 来渲染大量具有相同几何体与材质、但具有不同世界变换的物体。
+// 使用 InstancedMesh 将帮助你减少 draw call 的数量，从而提升你应用程序的整体渲染性能
+const starsInstance = new THREE.InstancedMesh(
+  new THREE.SphereGeometry(0.1, 32, 32),
+  new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    emissive: 0xffffff,
+    emissiveIntensity: 10,
+  }),
+  100
+)
 
+// 随机分布在天上
+const starsArr: THREE.Vector3[] = []
+const endArr: THREE.Vector3[] = []
 
+for(let i = 0; i < 100; i++) {
+  const x = Math.random() * 100 - 50
+  const y = Math.random() * 100 - 50
+  const z = Math.random() * 100 - 50
+  starsArr.push(new THREE.Vector3(x, y, z))
+
+  // 创建4维矩阵
+  let matrix: THREE.Matrix4 = new THREE.Matrix4()
+  matrix.setPosition(x, y, z)
+  // 第一个参数是实例的索引， 第二个参数是一个4x4矩阵，表示单个实例本地变换。
+  starsInstance.setMatrixAt(i, matrix)
+}
+scene.add(starsInstance)
+
+// 创建爱心路线
+let heartShape = new THREE.Shape();
+heartShape.moveTo(25, 25);
+heartShape.bezierCurveTo(25, 25, 20, 0, 0, 0);
+heartShape.bezierCurveTo(-30, 0, -30, 35, -30, 35);
+heartShape.bezierCurveTo(-30, 55, -10, 77, 25, 95);
+heartShape.bezierCurveTo(60, 77, 80, 55, 80, 35);
+heartShape.bezierCurveTo(80, 35, 80, 0, 50, 0);
+heartShape.bezierCurveTo(35, 0, 25, 25, 25, 25);
+
+// 根据爱心路径获取点
+let center = new THREE.Vector3(0, 2, 10);
+for (let i = 0; i < 100; i++) {
+  let point = heartShape.getPoint(i / 100);
+  endArr.push(
+    new THREE.Vector3(
+      point.x * 0.1 + center.x,
+      point.y * 0.1 + center.y,
+      center.z
+    )
+  )
+}
+
+// 创建爱心动画
+function makeHeart() {
+  let params = {
+    time: 0,
+  }
+  gsap.to(
+    params,
+    {
+      time: 1,
+      duration: 1,
+      onUpdate: () => {
+        for(let i = 0; i < 100; i++) {
+          let x = starsArr[i].x + (endArr[i].x - starsArr[i].x) * params.time;
+          let y = starsArr[i].y + (endArr[i].y - starsArr[i].y) * params.time;
+          let z = starsArr[i].z + (endArr[i].z - starsArr[i].z) * params.time;
+          let matrix = new THREE.Matrix4()
+          matrix.setPosition(x, y, z)
+          starsInstance.setMatrixAt(i, matrix)
+        }
+        starsInstance.instanceMatrix.needsUpdate = true
+      }
+    }
+  )
+}
 </script>
 
 <style scoped>
-
+.text {
+  position: fixed;
+  z-index: 100;
+  color: #ffffff;
+  pointer-events: none;
+  transition: all 1s;
+  top: 30px;
+  left: 80px;
+}
 </style>
