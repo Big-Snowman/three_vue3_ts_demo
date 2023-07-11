@@ -128,8 +128,8 @@ gltfLoader.load('./model/scene.glb', (gltf: Gltf) => {
 
 const waterGeometry = new THREE.CircleGeometry(200, 18)
 const water = new Water(waterGeometry, {
-  textureWidth: 256,
-  textureHeight: 256,
+  textureWidth: 512,
+  textureHeight: 512,
   // textureWidth: 1024,
   // textureHeight: 1024,
   color: 0xeeeeff,
@@ -159,8 +159,7 @@ pointLightGroup.position.set(-8, 2.5, -1.5)
 const radius = 3
 const pointLightArr: THREE.Mesh[] = []
 
-for(let i = 0; i < 1; i++) {
-// for(let i = 0; i < 3; i++) {
+for(let i = 0; i < 3; i++) {
   const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32)
   const sphereMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -244,7 +243,8 @@ const scenes = [
       translateCamera(
         new THREE.Vector3(-3.23, 3, 4.06),
         new THREE.Vector3(-8, 2, 0)
-        )
+      )
+      restoreHeart()
     }
   },
   {
@@ -296,14 +296,12 @@ const index = ref(0)
 window.addEventListener('wheel', (e) => {
   if(isAnimate) return
   isAnimate = true
-  console.log(e);
   if(e.deltaY > 0) {
     index.value++
     if(index.value > scenes.length - 1) {
       index.value = 0
     }
     scenes[index.value].callback()
-    console.log(index.value);
     
   }
   setTimeout(() => {
@@ -330,7 +328,7 @@ const endArr: THREE.Vector3[] = []
 
 for(let i = 0; i < 100; i++) {
   const x = Math.random() * 100 - 50
-  const y = Math.random() * 100 - 50
+  const y = Math.random() * 60
   const z = Math.random() * 100 - 50
   starsArr.push(new THREE.Vector3(x, y, z))
 
@@ -342,8 +340,17 @@ for(let i = 0; i < 100; i++) {
 }
 scene.add(starsInstance)
 
-// 创建爱心路线
+// 创建路线
 let heartShape = new THREE.Shape();
+// .moveTo( x, y )：将路径的起点移动到一个新的位置（x,y），并在路径中创建一个新的点。无返回值。
+// .lineTo( x, y )：在路径中创建一个新的点（x，y），并在该点和上一个点之间画一条直线。无返回值。
+// .ellipse( x, y, rx, ry, astart, aend, acw )：创建一个椭圆形的路径段。无返回值。示例代码: path.ellipse( 50, 50, 15, 8, 0, Math.PI * 2, false );
+// arc(aX, aY, aRadius, aStartAngle, aEndAngle, aClockwise) - 在当前子路径中创建一条弧线段。示例代码：path.arc( 0, 0, 20, 0, Math.PI, true );
+// ellipse(aX, aY, xRadius, yRadius, aStartAngle, aEndAngle, aClockwise, aRotation) - 在当前子路径中创建一个椭圆形。示例代码：javascript path.ellipse( 0, 0, 20, 30, 0, Math.PI, true,0 );
+// absarc(x, y, radius, startAngle, endAngle, clockwise) - 在形状上添加一个有中心和半径的弧形。
+// absellipse(x, y, xRadius, yRadius, startAngle, endAngle, clockwise) - 在形状上添加一个椭圆
+// .quadraticCurveTo( cx, cy, x, y )：在路径中创建一个控制点（cx，cy），并与当前点和结束点形成二次贝塞尔曲线。无返回值
+// .bezierCurveTo( cx1, cy1, cx2, cy2, x, y )：在路径中创建两个控制点（cx1，cy1）和（cx2，cy2），并与当前点和结束点形成三次贝塞尔曲线。无返回值
 heartShape.moveTo(25, 25);
 heartShape.bezierCurveTo(25, 25, 20, 0, 0, 0);
 heartShape.bezierCurveTo(-30, 0, -30, 35, -30, 35);
@@ -352,9 +359,10 @@ heartShape.bezierCurveTo(60, 77, 80, 55, 80, 35);
 heartShape.bezierCurveTo(80, 35, 80, 0, 50, 0);
 heartShape.bezierCurveTo(35, 0, 25, 25, 25, 25);
 
-// 根据爱心路径获取点
-let center = new THREE.Vector3(0, 2, 10);
+// 根据路径获取点
+let center = new THREE.Vector3(0, 0, 10);
 for (let i = 0; i < 100; i++) {
+  // .getPoint(t) t在0-1之间，返回曲线内取一个二维坐标
   let point = heartShape.getPoint(i / 100);
   endArr.push(
     new THREE.Vector3(
@@ -365,7 +373,7 @@ for (let i = 0; i < 100; i++) {
   )
 }
 
-// 创建爱心动画
+// 创建动画
 function makeHeart() {
   let params = {
     time: 0,
@@ -380,7 +388,32 @@ function makeHeart() {
           let x = starsArr[i].x + (endArr[i].x - starsArr[i].x) * params.time;
           let y = starsArr[i].y + (endArr[i].y - starsArr[i].y) * params.time;
           let z = starsArr[i].z + (endArr[i].z - starsArr[i].z) * params.time;
-          let matrix = new THREE.Matrix4()
+          // 创建4维矩阵
+          const matrix = new THREE.Matrix4()
+          matrix.setPosition(x, y, z)
+          starsInstance.setMatrixAt(i, matrix)
+        }
+        starsInstance.instanceMatrix.needsUpdate = true
+      }
+    }
+  )
+}
+
+function restoreHeart() {
+  const params = {
+    time: 0,
+  }
+  gsap.to(
+    params,
+    {
+      time: 1,
+      duration: 1,
+      onUpdate: () => {
+        for(let i = 0; i < 100; i++) {
+          let x = endArr[i].x + (starsArr[i].x - endArr[i].x) * params.time;
+          let y = endArr[i].y + (starsArr[i].y - endArr[i].y) * params.time;
+          let z = endArr[i].z + (starsArr[i].z - endArr[i].z) * params.time;
+          const matrix = new THREE.Matrix4()
           matrix.setPosition(x, y, z)
           starsInstance.setMatrixAt(i, matrix)
         }
