@@ -61,7 +61,7 @@ window.addEventListener('resize', () => {
   // 重新设置渲染器的宽高
   renderer.setSize(window.innerWidth, window.innerHeight)
   // 像素比
-  renderer.setPixelRatio
+  renderer.setPixelRatio(window.devicePixelRatio)
 })
 </script>
 <style>

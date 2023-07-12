@@ -56,7 +56,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight)
 // renderer.outputEncoding = THREE.sRGBEncoding
 renderer.outputColorSpace = THREE.SRGBColorSpace 
-console.log(renderer.outputColorSpace);
+// console.log(renderer.outputColorSpace);
 
 // 设置色调映射
 // renderer.toneMapping = THREE.CineonToneMapping
@@ -126,7 +126,7 @@ gltfLoader.load('./model/scene.glb', (gltf: Gltf) => {
   scene.add(model)
 })
 
-const waterGeometry = new THREE.CircleGeometry(200, 18)
+const waterGeometry = new THREE.CircleGeometry(110, 18)
 const water = new Water(waterGeometry, {
   textureWidth: 512,
   textureHeight: 512,
@@ -160,7 +160,7 @@ const radius = 3
 const pointLightArr: THREE.Mesh[] = []
 
 for(let i = 0; i < 3; i++) {
-  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32)
+  const sphereGeometry = new THREE.SphereGeometry(0.12, 32, 32)
   const sphereMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     // 材质的放射（光）颜色，基本上是不受其他光照影响的固有颜色。默认为黑色。
