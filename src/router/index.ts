@@ -25,6 +25,10 @@ const router = createRouter({
     {
       path: '/robot',
       component: () => import('../views/Robot.vue')
+    },
+    {
+      path: '/spacecraft',
+      component: () => import('../views/Spacecraft.vue')
     }
   ]
 })

@@ -34,7 +34,7 @@ const render = () => {
 onMounted(() => {
   canvasDom.value?.appendChild(renderer.domElement)
   // 初始化渲染器，渲染背景
-  scene.background = new THREE.Color('#ccc')
+  // scene.background = new THREE.Color('#ccc')
   // scene.environment = new THREE.Color('#ccc')
   render()
 })
