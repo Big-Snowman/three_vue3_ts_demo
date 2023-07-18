@@ -68,6 +68,13 @@ renderer.shadowMap.enabled = true
 // renderer.physicallyCorrectLights = true;
 // 是否使用传统照明模式,默认为是，关闭传统照明模式即可模仿物理光照，光亮随距离可递减
 renderer.useLegacyLights = false;
+console.log(renderer.shadowMap.type);
+// 设置阴影类型
+// BasicShadowMap 能够给出没有经过过滤的阴影映射 —— 速度最快，但质量最差。
+// PCFShadowMap 为默认值，使用Percentage-Closer Filtering (PCF)算法来过滤阴影映射。
+// PCFSoftShadowMap 和PCFShadowMap一样使用 Percentage-Closer Filtering (PCF) 算法过滤阴影映射，但在使用低分辨率阴影图时具有更好的软阴影。
+// VSMShadowMap 使用Variance Shadow Map (VSM)算法来过滤阴影映射。当使用VSMShadowMap时，所有阴影接收者也将会投射阴影
+renderer.shadowMap.type = THREE.BasicShadowMap
 
 const render = () => {
   renderer.render(scene, camera)
@@ -126,7 +133,7 @@ gltfLoader.load('./model/scene.glb', (gltf: Gltf) => {
   scene.add(model)
 })
 
-const waterGeometry = new THREE.CircleGeometry(110, 18)
+const waterGeometry = new THREE.CircleGeometry(110, 16)
 const water = new Water(waterGeometry, {
   textureWidth: 512,
   textureHeight: 512,
@@ -141,10 +148,10 @@ water.position.y = -0.4
 scene.add(water)
 
 // 添加平行光
-const light = new THREE.DirectionalLight(0xffffff, 0.1)
+// const light = new THREE.DirectionalLight(0xffffff, 0.1)
 // light.castShadow = true
-light.position.set(0, 50, 0)
-scene.add(light)
+// light.position.set(0, 50, 0)
+// scene.add(light)
 
 // 添加点光源
 const pointLight = new THREE.PointLight(0xffffff, 10)
@@ -160,7 +167,7 @@ const radius = 3
 const pointLightArr: THREE.Mesh[] = []
 
 for(let i = 0; i < 3; i++) {
-  const sphereGeometry = new THREE.SphereGeometry(0.12, 32, 32)
+  const sphereGeometry = new THREE.SphereGeometry(0.15, 32, 32)
   const sphereMaterial = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     // 材质的放射（光）颜色，基本上是不受其他光照影响的固有颜色。默认为黑色。
@@ -202,14 +209,14 @@ gsap.to(options, {
     pointLightGroup.rotation.y = options.angle;
     pointLightGroup.rotation.x = options.angle;
     pointLightGroup.rotation.z = options.angle;
-    pointLightArr.forEach((item, index) => {
+    // pointLightArr.forEach((item, index) => {
       // item.position.y = Math.cos((index * 2 * Math.PI) / 3 + options.angle * 5)
       // item.position.set(
       //   radius * Math.cos((index * 2 * Math.PI) / 3),
       //   Math.cos((index * 2 * Math.PI) / 3 + options.angle * 5),
       //   radius * Math.sin((index * 2 * Math.PI) / 3)
       // );
-    });
+    // });
   },
 })
 
@@ -313,7 +320,7 @@ window.addEventListener('wheel', (e) => {
 // 下面是一种具有实例化渲染支持的特殊版本的Mesh。你可以使用 InstancedMesh 来渲染大量具有相同几何体与材质、但具有不同世界变换的物体。
 // 使用 InstancedMesh 将帮助你减少 draw call 的数量，从而提升你应用程序的整体渲染性能
 const starsInstance = new THREE.InstancedMesh(
-  new THREE.SphereGeometry(0.1, 32, 32),
+  new THREE.SphereGeometry(0.08, 32, 32),
   new THREE.MeshStandardMaterial({
     color: 0xffffff,
     emissive: 0xffffff,

@@ -26,8 +26,8 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight)
 
 // 创建辅助坐标轴
-const axes = new THREE.AxesHelper(5);
-scene.add(axes);
+// const axes = new THREE.AxesHelper(5);
+// scene.add(axes);
 
 const render = () => {
   renderer.render(scene, camera)

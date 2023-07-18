@@ -15,6 +15,8 @@ const canvasDom = ref<HTMLElement | null>(null)
 const scene = new THREE.Scene()
 // 创建相机
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+// 更新投影矩阵（在相机设置完宽高比之后使用）
+camera.updateProjectionMatrix()
 camera.position.set(0, 2, 6)
 // 创建渲染器
 const renderer = new THREE.WebGLRenderer({

@@ -5,6 +5,7 @@
     <div class="btn" @click="toPage('christmas')">圣诞</div>
     <div class="btn" @click="toPage('robot')">机器人</div>
     <div class="btn" @click="toPage('spacecraft')">官网</div>
+    <div class="btn" @click="toPage('football')">足球</div>
   </div>
 </template>
 <script setup lang="ts">

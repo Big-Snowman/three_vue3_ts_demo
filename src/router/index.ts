@@ -29,6 +29,10 @@ const router = createRouter({
     {
       path: '/spacecraft',
       component: () => import('../views/Spacecraft.vue')
+    },
+    {
+      path: '/football',
+      component: () => import('../views/Football.vue')
     }
   ]
 })

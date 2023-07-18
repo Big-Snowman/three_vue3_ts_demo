@@ -10,6 +10,7 @@
     "type-check": "vue-tsc --noEmit -p tsconfig.app.json --composite false"
   },
   "dependencies": {
+    "cannon-es": "^0.20.0",
     "dat.gui": "^0.7.9",
     "gsap": "^3.12.2",
     "pinia": "^2.1.3",

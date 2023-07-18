@@ -167,11 +167,15 @@ const timeline2 = gsap.timeline()
 window.addEventListener('wheel', (e) => {
   // 当时间线没在活动时再移动摄像机，防抖
   if(!timeline2.isActive()) {
-    console.log(e.deltaY);
     if(e.deltaY > 0) {
       index++
       if(index > 2) {
         index = 0
+      }
+    } else {
+      index--
+      if(index < 0) {
+        index = 2
       }
     }
     timeline2.to(camera.position, {
@@ -201,7 +205,7 @@ gltfLoader.load('./model/moon.glb', (gltf: any) => {
       // 矩阵
       const matrix = new THREE.Matrix4()
       // 设置星球的随机大小
-      const size = Math.random() * 30
+      const size = Math.random() * 300
       matrix.makeScale(size, size, size)
       matrix.makeTranslation(x, y, z)
       moonInstance.setMatrixAt(i, matrix)
@@ -231,9 +235,12 @@ scene.add(light1, light2)
 }
 .logo {
   position: fixed;
-  top: 0;
-  left: 0;
-  background-image: url('../assets/logo.png');
+  top: 10px;
+  left: 10px;
+  height: 30px;
+  width: 30px;
+  background: url('../assets/logo.png') no-repeat;
+  background-size: 30px 30px;
 }
 .right-top {
   position: fixed;
