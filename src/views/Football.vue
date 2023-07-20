@@ -1,7 +1,15 @@
 <template>
   <div class="home">
+    <div class="mask" v-if="!start">
+      <div class="load" ref="loadDom" v-if="complete"></div>
+      <div class="start" v-else @click="gameStart">游戏开始</div>
+      <div class="tip">
+        <div v-if="pc">Tip：按下鼠标蓄力，松开鼠标射球！</div>
+        <div v-else>Tip：触碰屏幕蓄力，离开射球！</div>        
+      </div>
+    </div>
     <div class="power-box" style=""></div>
-    <!-- <button @click="lightFlag(flag)">夜晚/白天</button> -->
+    <div class="score">得分：{{ score }}</div>
     <div class="power" :style="{width: `${percentage * 2.8}px`}"></div>
     <div class="canvas-container" ref="canvasDom">
     </div>
@@ -13,6 +21,7 @@ import * as THREE from 'three'
 // 物理引擎库
 import * as CANNON from 'cannon-es'
 import gsap from 'gsap'
+// import Stats from 'three/addons/libs/stats.module.js';
 import { onMounted, ref, reactive } from 'vue';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
@@ -21,18 +30,245 @@ import * as dat from 'dat.gui'
 
 const canvasDom = ref<HTMLElement | null>(null)
 const frameDom = ref<HTMLElement | null>(null)
+const loadDom = ref<HTMLElement | null>(null)
 
-let flag = true
-const lightFlag = (flag: boolean) => {
-  flag = !flag
-  if(flag) {
-    scene.remove(spotLight,spotLight1,spotLight2,spotLight3) 
+const pc = ref<boolean>(true)
+
+// 加载进度变量
+let complete = ref<boolean>(true)
+// 开始游戏变量
+let start = ref<boolean>(false)
+// 开始游戏
+const gameStart = () => {
+  start.value = true
+  ballBody.position.set(0, 8, 0)
+  // 添加钢体到物理世界
+  world.addBody(ballBody)
+  let timer: number, isScore = true
+  // 对足球刚体监听碰撞事件  可以监听的事件有 'collide', 'sleep' or 'wakeup' 等
+  ballBody.addEventListener('collide', (e: any) => {
+    playHitSound(e, false)
+    // 节流计分 把足球丢场外
+    if(isScore && e.body.id === doorID) {
+      ballBody.position.set(0, -50, 0)
+      ballBody.velocity.set(0, 0, 0)
+      ballBody.angularVelocity.set(0, 0, 0)
+      score.value++
+      playHitSound(e, true)
+      isScore = false
+      // 中球特效
+      gsap.to(doorMaterial.color, {
+        r: 1,
+        g: 1,
+        b: 1,
+        duration: 0.8,
+        yoyo: true,
+        repeat: 3
+      })
+      timer = setTimeout(() => {
+        isScore = true
+        clearTimeout(timer)
+      }, 1800)
+    }
+  })
+
+
+
+  ballBody.addEventListener('move', (e: any) => {
+    console.log(e);
+  })
+  ballBody.addEventListener('wakeup', (e: any) => {
+    console.log(e);
+  })
+  ballBody.addEventListener('sleep', (e: any) => {
+    console.log(e);
+  })
+  // translateCamera(ball.position, new THREE.Vector3(0, 2, 20))
+
+
+  let isClick = false
+  // window.addEventListener('click', () => {
+  //   if(isClick) return
+  //   isClick = true
+  //   console.log(percentage.value)
+  //   console.log("Number of Triangles :", renderer.info.render.triangles)
+  //   console.log(world)
+  //   hitSound.volume = percentage.value / 100
+  //   hitSound.currentTime = 0
+  //   hitSound.play()
+  //   // 第一个参数力度的大小，第二个参数是力度施加的位置 
+  //   ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value - 100, 6 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
+  //   setTimeout(() => {
+  //     isClick = false
+  //     ballBody.position.set(0, 1, 0)
+  //     ballBody.velocity.set(0, 0, 0)
+  //     ballBody.angularVelocity.set(0, 0, 0)
+  //   }, 5000)
+  //   console.log(world.broadphase);
+  // })
+
+  // gsap.to(percentage, {
+  //   duration: 5,
+  //   value: 100,
+  //   ease: 'linear',
+  //   repeat: -1,
+  //   onUpdate: () => {
+  //     percentage.value = Math.floor(percentage.value)
+  //   }
+  // })
+
+  let cameraViewID: number
+  const cameraView = () => {
+    // translateCamera(ball.position, new THREE.Vector3(0, 5, 5))
+    camera.position.copy(ball.position)
+    cameraViewID = requestAnimationFrame(cameraView)
+  }
+
+  const down = () => {
+    if(isClick) return
+      percentage.value = Math.random() * 100
+      powerLine()
+  }
+  const up = () => {
+    cancelAnimationFrame(powerID)
+    // clearInterval(powerID)
+    if(isClick) return
+    isClick = true
+    console.log(percentage.value)
+    console.log("Number of Triangles :", renderer.info.render.triangles)
+    console.log(world)
+    hitSound.volume = percentage.value / 100
+    hitSound.currentTime = 0
+    hitSound.play()
+    cameraView()
+    // 第一个参数力度的大小，第二个参数是力度施加的位置 
+    ballBody.applyForce(new CANNON.Vec3(-12 * percentage.value - 100, 8 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
+    setTimeout(() => {
+      cancelAnimationFrame(cameraViewID)
+      translateCamera( new THREE.Vector3(4, 2, 0), new THREE.Vector3(0, 0, 0))
+      isClick = false
+      ballBody.position.set(0, 1, 0)
+      ballBody.velocity.set(0, 0, 0)
+      ballBody.angularVelocity.set(0, 0, 0)
+    }, 5000)
+  }
+  // pc
+  if(pc.value) {
+    window.addEventListener('mousedown', () => {
+      down()
+    })
+    window.addEventListener("mouseup", () => {
+      up()
+    })    
   } else {
-    scene.background = null
-    scene.environment = null
-    scene.add(spotLight,spotLight1,spotLight2,spotLight3)    
+    window.addEventListener('touchstart', () => {
+      down()
+    })
+    window.addEventListener("touchend", () => {
+      up()
+    })    
+  }
+
+  // let tween:gsap.core.Tween
+  // window.addEventListener('mousedown', () => {
+  //   if(isClick) return
+  //   percentage.value = Math.random() * 100
+  //   tween = gsap.to(percentage, {
+  //     duration: 0.8,
+  //     value: 100,
+  //     ease: 'linear',
+  //     repeat: -1,
+  //     onUpdate: () => {
+  //       percentage.value = Math.floor(percentage.value)
+  //     }
+  //   })
+  // })
+  // window.addEventListener("mouseup", () => {
+  //   tween.kill()
+  //   if(isClick) return
+  //   isClick = true
+  //   console.log(percentage.value)
+  //   console.log("Number of Triangles :", renderer.info.render.triangles)
+  //   console.log(world)
+  //   hitSound.volume = percentage.value / 100
+  //   hitSound.currentTime = 0
+  //   hitSound.play()
+  //   // 第一个参数力度的大小，第二个参数是力度施加的位置 
+  //   ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value - 100, 6 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
+  //   setTimeout(() => {
+  //     isClick = false
+  //     ballBody.position.set(0, 1, 0)
+  //     ballBody.velocity.set(0, 0, 0)
+  //     ballBody.angularVelocity.set(0, 0, 0)
+  //   }, 5000)
+  // })
+}
+
+
+// 使用补间动画移动相机
+const timeLine1 = gsap.timeline()
+const timeLine2 = gsap.timeline()
+// 定义相机移动函数
+function translateCamera(position: THREE.Vector3, target: THREE.Vector3) {
+  timeLine1.to(camera.position, {
+    x: position.x,
+    y: position.y,
+    z: position.z,
+    duration: 1,
+    ease: 'power2.inOut'
+  })
+  timeLine2.to(controls.target, {
+    x: target.x,
+    y: target.y,
+    z: target.z,
+    duration: 1,
+    ease: 'power2.inOut'
+  })
+}
+
+
+// 检测是否移动端
+function browserRedirect() {
+  const sUserAgent = navigator.userAgent.toLowerCase();
+  const bIsIpad = sUserAgent.indexOf('ipad') != -1
+  const bIsIphoneOs = sUserAgent.indexOf('iphone os') != -1
+  const bIsMidp = sUserAgent.indexOf('midp') != -1
+  const bIsUc7 = sUserAgent.indexOf('rv:1.2.3.4') != -1
+  const bIsUc = sUserAgent.indexOf('ucweb') != -1
+  const bIsAndroid = sUserAgent.indexOf('android') != -1
+  const bIsCE = sUserAgent.indexOf('windows ce') != -1
+  const bIsWM = sUserAgent.indexOf('windows mobile') != -1
+  if (!(bIsIpad || bIsIphoneOs || bIsMidp || bIsUc7 || bIsUc || bIsAndroid || bIsCE || bIsWM) ) {
+    pc.value = true
+  } else {
+    pc.value = false
   }
 }
+browserRedirect()
+
+let powerID: number
+// const powerLine = () => {
+//   powerID = setInterval(() => {
+//     if(percentage.value < 100) {
+//       percentage.value++
+//     } else {
+//       percentage.value = 0
+//     }
+//   }, 10)
+// }
+const powerLine = () => {
+  if(percentage.value < 100) {
+    percentage.value = percentage.value + 2
+  } else {
+    percentage.value = 0
+  }
+  powerID = requestAnimationFrame(powerLine)
+}
+
+// let stats = new Stats()
+// document.body.appendChild( stats.dom )
+
+let score = ref<number>(0)
 
 // 实例创建一个GUI
 const gui = new dat.GUI()
@@ -52,7 +288,7 @@ const renderer = new THREE.WebGLRenderer({
   logarithmicDepthBuffer: true
 })
 // 是否使用传统照明模式,默认为是，关闭传统照明模式即可模仿物理光照，光亮随距离可递减
-renderer.useLegacyLights = false;
+// renderer.useLegacyLights = false;
 renderer.setSize(window.innerWidth, window.innerHeight)
 // 设置色调映射
 renderer.toneMapping = THREE.ACESFilmicToneMapping
@@ -70,7 +306,7 @@ renderer.toneMappingExposure = 0.8
 // renderer.shadowMap.type = THREE.BasicShadowMap
 // console.log(renderer.info.render.frame);
 
-let clock = new THREE.Clock()
+// let clock = new THREE.Clock()
 const render = () => {
   // let delta = clock.getDelta()
   // world.step(delta)
@@ -90,6 +326,7 @@ const render = () => {
   }
   renderer.render(scene, camera)
   controls.update()
+  // stats.update()
   requestAnimationFrame(render)
 }
 
@@ -123,67 +360,39 @@ textureLoader.load('./texture/outdoor.jpg', (texture: THREE.Texture) => {
   scene.backgroundBlurriness = 0.2
 })
 
-// 添加聚光灯
-const spotLight = new THREE.SpotLight(0xffffff, 1)
-spotLight.position.set(10.8, 10.8, 6.1)
-spotLight.castShadow = true
-spotLight.shadow.camera.near = 0.5
-spotLight.shadow.camera.far = 39
-spotLight.shadow.camera.fov = 30
-// spotLight.shadow.mapSize.width = 256
-// spotLight.shadow.mapSize.height = 256
-// 设置灯光 bias ，解决自阴影问题
-spotLight.shadow.bias = -0.0008
-spotLight.power = 1888
-
-// 添加聚光灯
-const spotLight1 = new THREE.SpotLight(0xffffff, 1)
-spotLight1.position.set(-10.2, 10.8, 6.1)
-spotLight1.castShadow = true
-spotLight1.shadow.camera.near = 0.5
-spotLight1.shadow.camera.far = 39
-spotLight1.shadow.camera.fov = 30
-// spotLight1.shadow.mapSize.width = 256
-// spotLight1.shadow.mapSize.height = 256
-// 设置灯光 bias ，解决自阴影问题
-spotLight1.shadow.bias = -0.0008
-spotLight1.power = 1888
-
-// 添加聚光灯
-const spotLight2 = new THREE.SpotLight(0xffffff, 1)
-spotLight2.position.set(-10.6, 11, -5.8)
-spotLight2.castShadow = true
-spotLight2.shadow.camera.near = 0.5
-spotLight2.shadow.camera.far = 39
-spotLight2.shadow.camera.fov = 30
-// spotLight2.shadow.mapSize.width = 256
-// spotLight2.shadow.mapSize.height = 256
-// 设置灯光 bias ，解决自阴影问题
-spotLight2.shadow.bias = -0.0008
-spotLight2.power = 1888
+// // 添加聚光灯
+// const spotLight2 = new THREE.SpotLight(0xffffff, 1)
+// spotLight2.position.set(-10.6, 11, -5.8)
+// spotLight2.castShadow = true
+// spotLight2.shadow.camera.near = 0.5
+// spotLight2.shadow.camera.far = 39
+// spotLight2.shadow.camera.fov = 30
+// // spotLight2.shadow.mapSize.width = 256
+// // spotLight2.shadow.mapSize.height = 256
+// // 设置灯光 bias ，解决自阴影问题
+// spotLight2.shadow.bias = -0.0008
+// spotLight2.power = 1888
 
 // 使用辅助器对灯光和阴影进行调整  !!!!!!!!!!
 // const cameraHelper = new THREE.CameraHelper(spotLight2.shadow.camera)
 // scene.add(cameraHelper)
 
-// 添加聚光灯
-const spotLight3 = new THREE.SpotLight(0xffffff, 1)
-spotLight3.position.set(10.6, 10.8, -5.8)
-spotLight3.castShadow = true
-spotLight3.shadow.camera.near = 0.5
-spotLight3.shadow.camera.far = 39
-spotLight3.shadow.camera.fov = 30
-// spotLight3.shadow.mapSize.width = 256
-// spotLight3.shadow.mapSize.height = 256
-// 设置灯光 bias ，解决自阴影问题
-spotLight3.shadow.bias = -0.0008
-spotLight3.power = 1888
-// scene.add(spotLight,spotLight1,spotLight2,spotLight3)
-
 // 初始化物理世界
 const world = new CANNON.World()
 // 设置重力
 world.gravity.set(0, -9.82, 0)
+
+// 创建默认材质
+const defaultMaterial = new CANNON.Material('default')
+//创建塑料材质
+const ballMaterial = new CANNON.Material('ball')
+// 定义两种材质之间的摩擦因数和弹力系数
+const defaultContactMaterial = new CANNON.ContactMaterial(defaultMaterial, ballMaterial, {
+  friction: 5,
+  restitution: 0.2,
+})
+world.addContactMaterial(defaultContactMaterial)
+
 // NaiveBroadphase Cannon 默认的算法。检测物体碰撞时，一个基础的方式是检测每个物体是否与其他每个物体发生了碰撞
 // GridBroadphase 网格检测。轴对齐的均匀网格 Broadphase。将空间划分为网格，网格内进行检测。
 // SAPBroadphase(Sweep-and-Prune) 扫描-剪枝算法，性能最好。
@@ -191,16 +400,31 @@ world.gravity.set(0, -9.82, 0)
 // 碰撞算法
 // world.broadphase = new CANNON.SAPBroadphase(world)
 
-let ball: THREE.Mesh, ballBody: CANNON.Body
+let ball: THREE.Mesh, ballBody: CANNON.Body, doorID: Number
+
+// 纹理加载器管理
+const manager = new THREE.LoadingManager()
+manager.onLoad = function ( ) {
+	console.log( 'Loading complete!')
+  complete.value = false
+}
+manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
+	console.log( 'Loading file: ' + url + '.\nLoaded ' + itemsLoaded + ' of ' + itemsTotal + ' files.' )
+  if(loadDom.value) {
+    loadDom.value.innerHTML = itemsLoaded / itemsTotal === 1 ? '' : `载入中,请稍等--${((itemsLoaded / itemsTotal) * 100).toFixed(0)}%`
+  }
+}
+manager.onError = function ( url ) {
+	console.log( 'There was an error loading ' + url )
+}
 
 const dracoLoader = new DRACOLoader()
 dracoLoader.setDecoderPath('./draco/')
-const gltfLoader = new GLTFLoader()
+const gltfLoader = new GLTFLoader(manager)
 gltfLoader.setDRACOLoader(dracoLoader)
 gltfLoader.load('./model/playground02.glb', (gltf: any) => {
   const model = gltf.scene
   model.traverse((child: any) =>{
-    
     // if(child.isMesh) {
     //   child.castShadow = true;
     //   child.receiveShadow = true;
@@ -221,7 +445,8 @@ gltfLoader.load('./model/playground02.glb', (gltf: any) => {
         // 刚体的质量mass，质量为0的物体为静止的物体
         mass: 0,
         // 刚体形状
-        shape: trimesh
+        shape: trimesh,
+        material: defaultMaterial
       })
       // 获取世界位置和旋转给到物理世界
       // Three.js获得世界坐标.getWorldPosition(target)   将值复制到参数target
@@ -229,6 +454,16 @@ gltfLoader.load('./model/playground02.glb', (gltf: any) => {
       // 通过.getWorldQuaternion(THREE.Quaternion)方法可以获得一个模型的世界空间中旋转的四元数   将值复制到参数
       trimeshBody.position.copy(child.getWorldPosition(new THREE.Vector3()))
       trimeshBody.quaternion.copy(child.getWorldQuaternion(new THREE.Quaternion()))
+      // 保存足球们的刚体ID
+      if(child.name === 'door') {
+        doorID = trimeshBody.id
+        child.material = doorMaterial
+        // const a = child.getWorldPosition(new THREE.Vector3());
+        // const b = child.getWorldQuaternion(new THREE.Vector3());
+        // console.log(a);
+        // console.log(b);
+        
+      }
       // 添加刚体到物理世界
       world.addBody(trimeshBody)
     }
@@ -242,67 +477,97 @@ gltfLoader.load('./model/playground02.glb', (gltf: any) => {
         // 质量为1
         mass: 1,
         // 位置
-        position: new CANNON.Vec3(0, 115, 0),
-        shape: ballShape
+        // position: new CANNON.Vec3(0, 5, 0),
+        shape: ballShape,
+        material: ballMaterial
       })
-      // 添加钢体到物理世界
-      world.addBody(ballBody)
-      ballBody.addEventListener('collide', (e: any) => {
-        console.log(e.body);        
-      })
+      // // 添加钢体到物理世界
+      // world.addBody(ballBody)
+      // let timer: number, isScore = true
+      // // 对足球刚体监听碰撞事件
+      // ballBody.addEventListener('collide', (e: any) => {
+      //   playHitSound(e, false)
+      //   // 节流计分 把足球丢场外
+      //   if(isScore && e.body.id === doorID) {
+      //     ballBody.position.set(0, -50, 0)
+      //     ballBody.velocity.set(0, 0, 0)
+      //     ballBody.angularVelocity.set(0, 0, 0)
+      //     score.value++
+      //     playHitSound(e, true)
+      //     isScore = false
+      //     // 中球特效
+      //     gsap.to(doorMaterial.color, {
+      //       r: 1,
+      //       g: 1,
+      //       b: 1,
+      //       duration: 0.8,
+      //       yoyo: true,
+      //       repeat: 3
+      //     })
+      //     timer = setTimeout(() => {
+      //       isScore = true
+      //       clearTimeout(timer)
+      //     }, 1800)
+      //   }
+      // })
     }
-    if(child.name === 'door') {
-      child.material = new THREE.MeshBasicMaterial({
-        color: 0x000000,
-        opacity: 0.5,
-        transparent: true
-      })
-    }
-    // setTimeout(() => {
-    //   ballBody.position.set(0, 3, 0)
-    //   // 速率
-    //   ballBody.velocity.set(0, 0, 0)
-    //   // 角速度
-    //   ballBody.angularVelocity.set(0, 0, 0)
-    //   console.log('555')
-    // }, 2000)
   })
   scene.add(model)
 })
 
-let percentage = ref(30)
-
-gsap.to(percentage, {
-  duration: 5,
-  value: 100,
-  ease: 'linear',
-  repeat: -1,
-  onUpdate: () => {
-    percentage.value = Math.floor(percentage.value)
+/**
+ * Sounds
+ */
+const hitSound = new Audio('./sounds/football.wav')
+const scoreSound = new Audio('./sounds/score.wav')
+// const hitSound = new Audio('../assets/sounds/football.wav')
+const playHitSound = (collision: { contact: CANNON.ContactEquation }, score: boolean) => {
+  if(score) {
+    scoreSound.currentTime = 8
+    scoreSound.play()
+  } else {
+    const impactStrength = collision.contact.getImpactVelocityAlongNormal()
+    if (impactStrength > 1.5) {
+      hitSound.volume = Math.random()
+      hitSound.currentTime = 0
+      hitSound.play()
+    }    
   }
+}
+
+const doorMaterial = new THREE.MeshBasicMaterial({
+  color: 0x000000,
+  opacity: 0.5,
+  transparent: true
 })
+
+// 力度百分比
+let percentage = ref(0)
 
 // 添加坐标轴辅助器
 // const axesHelper = new THREE.AxesHelper(6)
 // scene.add(axesHelper)
 
-let isClick = false
-window.addEventListener('click', () => {
-  if(isClick) return
-  isClick = true
-  console.log(percentage.value);
-  console.log("Number of Triangles :", renderer.info.render.triangles);
-  console.log(world);
-  // 第一个参数力度的大小，第二个参数是力度施加的位置 
-  ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value, 6 * percentage.value, (Math.random() - 0.5) * percentage.value), ballBody.position)
-  setTimeout(() => {
-    isClick = false
-    ballBody.position.set(0, 3, 0)
-    ballBody.velocity.set(0, 0, 0)
-    ballBody.angularVelocity.set(0, 0, 0)
-  }, 5000)
-  console.log(world.broadphase);
-})
+// let isClick = false
+// window.addEventListener('click', () => {
+//   if(isClick) return
+//   isClick = true
+//   console.log(percentage.value)
+//   console.log("Number of Triangles :", renderer.info.render.triangles)
+//   console.log(world)
+//   hitSound.volume = percentage.value / 100
+//   hitSound.currentTime = 0
+//   hitSound.play()
+//   // 第一个参数力度的大小，第二个参数是力度施加的位置 
+//   ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value, 6 * percentage.value, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
+//   setTimeout(() => {
+//     isClick = false
+//     ballBody.position.set(0, 1, 0)
+//     ballBody.velocity.set(0, 0, 0)
+//     ballBody.angularVelocity.set(0, 0, 0)
+//   }, 5000)
+//   console.log(world.broadphase);
+// })
 
 console.log(world.hasAnyEventListener('ballBody'));
 
@@ -316,7 +581,7 @@ console.log(world.hasAnyEventListener('ballBody'));
 .power,
 .power-box {
   position: fixed;
-  top: 20px;
+  bottom: 20px;
   left: 50vw;
   transform: translateX(-50%);
   width: 280px;
@@ -326,9 +591,57 @@ console.log(world.hasAnyEventListener('ballBody'));
 .power {
   position: fixed;
   left: 50vw;
-  top: 20px;
+  bottom: 20px;
   transform: translateX(-140px);
   z-index: 110;
   background: linear-gradient(to right, rgb(156, 113, 108) 50px, red 150px, #d1b041);
+}
+.score {
+  position: fixed;
+  left: 20px;
+  top: 20px;
+  font-weight: 700;
+  font-size: 28px;
+  color: red;
+}
+.mask {
+  width: 100vw;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2222;
+  background-color: #fcf9f9;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.load {
+  /* background-color: #b6b6b6; */
+  display: inline-block;
+  /* padding: 20px; */
+  height: 80px;
+  /* padding: 8px 20px; */
+  font-size: 39px;
+  font-weight: 900;
+  /* border-radius: 20px; */
+  color: #000;
+}
+.start {
+  background-color: #b6b6b6;
+  display: inline-block;
+  /* padding: 20px; */
+  height: 80px;
+  padding: 8px 20px;
+  font-size: 39px;
+  font-weight: 900;
+  cursor: pointer;
+  border-radius: 20px;
+  color: #fff;
+}
+.tip {
+  position: fixed;
+  top: 50px;
+  left: 50px;
 }
 </style>
