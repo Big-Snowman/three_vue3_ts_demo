@@ -4,12 +4,13 @@
       <div class="load" ref="loadDom" v-if="complete"></div>
       <div class="start" v-else @click="gameStart">游戏开始</div>
       <div class="tip">
-        <div v-if="pc">Tip：按下鼠标蓄力，松开鼠标射球！</div>
+        <div v-if="pc">Tip：右击鼠标蓄力，松开鼠标射球！</div>
         <div v-else>Tip：触碰屏幕蓄力，离开射球！</div>        
       </div>
     </div>
     <div class="power-box" style=""></div>
     <div class="score">得分：{{ score }}</div>
+    <div class="view" @click="viewChange" :style="{cursor: `${isClick ? 'no-drop' : 'pointer'}`}" > {{ viewTitle }} </div>
     <div class="power" :style="{width: `${percentage * 2.8}px`}"></div>
     <div class="canvas-container" ref="canvasDom">
     </div>
@@ -22,35 +23,59 @@ import * as THREE from 'three'
 import * as CANNON from 'cannon-es'
 import gsap from 'gsap'
 // import Stats from 'three/addons/libs/stats.module.js';
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, ref, reactive, watch } from 'vue';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
-import * as dat from 'dat.gui'
+// import * as dat from 'dat.gui'
 
 const canvasDom = ref<HTMLElement | null>(null)
 const frameDom = ref<HTMLElement | null>(null)
 const loadDom = ref<HTMLElement | null>(null)
 
 const pc = ref<boolean>(true)
+const viewTitle = ref('跟踪视角')
+
+let viewFlag = false
+const viewChange = () => {
+  viewFlag = !viewFlag
+  viewTitle.value = viewFlag ? '不跟着视角' : '跟踪视角'
+  if(!viewFlag) {
+    translateCamera( new THREE.Vector3(4, 2, 0), new THREE.Vector3(0, 0, 0))
+  }
+}
 
 // 加载进度变量
 let complete = ref<boolean>(true)
 // 开始游戏变量
 let start = ref<boolean>(false)
+// 
+let isClick = ref(false)
 // 开始游戏
 const gameStart = () => {
   start.value = true
   ballBody.position.set(0, 8, 0)
   // 添加钢体到物理世界
   world.addBody(ballBody)
-  let timer: number, isScore = true
+  let isScore = true
   // 对足球刚体监听碰撞事件  可以监听的事件有 'collide', 'sleep' or 'wakeup' 等
   ballBody.addEventListener('collide', (e: any) => {
     playHitSound(e, false)
     // 节流计分 把足球丢场外
     if(isScore && e.body.id === doorID) {
-      ballBody.position.set(0, -50, 0)
+      gsap.to(ballBody.position, {
+        x: 0,
+        y: 200,
+        z: 0,
+        duration: 1
+      })
+      gsap.to(controls.target, {
+        x: 0,
+        y: 0,
+        z: 0,
+        duration: 1
+      })
+      // ballBody.position.set(0, 150, 0)
       ballBody.velocity.set(0, 0, 0)
       ballBody.angularVelocity.set(0, 0, 0)
       score.value++
@@ -65,88 +90,136 @@ const gameStart = () => {
         yoyo: true,
         repeat: 3
       })
-      timer = setTimeout(() => {
-        isScore = true
-        clearTimeout(timer)
-      }, 1800)
     }
   })
 
-
-
-  ballBody.addEventListener('move', (e: any) => {
-    console.log(e);
-  })
-  ballBody.addEventListener('wakeup', (e: any) => {
-    console.log(e);
-  })
-  ballBody.addEventListener('sleep', (e: any) => {
-    console.log(e);
-  })
-  // translateCamera(ball.position, new THREE.Vector3(0, 2, 20))
-
-
-  let isClick = false
-  // window.addEventListener('click', () => {
-  //   if(isClick) return
-  //   isClick = true
-  //   console.log(percentage.value)
-  //   console.log("Number of Triangles :", renderer.info.render.triangles)
-  //   console.log(world)
-  //   hitSound.volume = percentage.value / 100
-  //   hitSound.currentTime = 0
-  //   hitSound.play()
-  //   // 第一个参数力度的大小，第二个参数是力度施加的位置 
-  //   ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value - 100, 6 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
-  //   setTimeout(() => {
-  //     isClick = false
-  //     ballBody.position.set(0, 1, 0)
-  //     ballBody.velocity.set(0, 0, 0)
-  //     ballBody.angularVelocity.set(0, 0, 0)
-  //   }, 5000)
-  //   console.log(world.broadphase);
-  // })
-
-  // gsap.to(percentage, {
-  //   duration: 5,
-  //   value: 100,
-  //   ease: 'linear',
-  //   repeat: -1,
-  //   onUpdate: () => {
-  //     percentage.value = Math.floor(percentage.value)
-  //   }
-  // })
-
   let cameraViewID: number
+
+  // 相机镜头追踪
   const cameraView = () => {
-    // translateCamera(ball.position, new THREE.Vector3(0, 5, 5))
-    camera.position.copy(ball.position)
+    if(isScore) {
+      if(ball.position.x < -10) {
+        x.old = x.new
+        x.new = -5
+        if(x.old != x.new) {
+          gsap.to(x, {
+            value: x.new,
+            duration: 4
+          })
+        }
+      } else {
+        x.old = x.new
+        x.new = 5
+        if(x.old != x.new) {
+          gsap.to(x, {
+            value: x.new,
+            duration: 4
+          })
+        }
+      }
+
+      if(ball.position.z < 2) {
+        z.old = z.new
+        z.new = -1
+        if(z.old != z.new) {
+          gsap.to(z, {
+            value: z.new,
+            duration: 2
+          })
+        }
+      } else {
+        z.old = z.new
+        z.new = 1
+        if(z.old != z.new) {
+          gsap.to(z, {
+            value: z.new,
+            duration: 2
+          })
+        }
+      }
+
+      if(ball.position.y > 1) {
+        y.old = y.new
+        y.new = 1
+        if(y.old != y.new) {
+          gsap.to(y, {
+            value: y.new,
+            duration: 1
+          })
+        }
+      } else if(ball.position.y < -0.5) {
+        y.old = y.new
+        y.new = -4
+        if(y.old != y.new) {
+          gsap.to(y, {
+            value: y.new,
+            duration: 1
+          })
+        }
+      } else {
+        y.old = y.new
+        y.new = 0
+        if(y.old != y.new) {
+          gsap.to(y, {
+            value: y.new,
+            duration: 1
+          })
+        }
+      }
+    } else {
+      gsap.to(x, {
+        value: 0.5,
+        duration: 2
+      })
+      gsap.to(y, {
+        value: 3,
+        duration: 2
+      })
+      gsap.to(z, {
+        value: 0,
+        duration: 2
+      })
+    }
+    camera.position.set(ball.position.x + x.value, ball.position.y + y.value, ball.position.z + z.value)
     cameraViewID = requestAnimationFrame(cameraView)
   }
 
   const down = () => {
-    if(isClick) return
-      percentage.value = Math.random() * 100
-      powerLine()
+    if(isClick.value) return
+    percentage.value = Math.random() * 100
+    powerLine()
   }
   const up = () => {
+    if(isClick.value) return
     cancelAnimationFrame(powerID)
-    // clearInterval(powerID)
-    if(isClick) return
-    isClick = true
-    console.log(percentage.value)
+    clearInterval(powerID)
+    isClick.value = true
     console.log("Number of Triangles :", renderer.info.render.triangles)
-    console.log(world)
+    percentage.value = percentage.value > 100 ? 100 : percentage.value
     hitSound.volume = percentage.value / 100
     hitSound.currentTime = 0
+    // 播放音效
     hitSound.play()
-    cameraView()
+    // 相机移动追踪
+    if(viewFlag) {
+      cameraView()
+      gsap.to(controls.target, {
+        x: -10,
+        y: 1,
+        z: 0,
+        duration: 1
+      })
+    }
+
     // 第一个参数力度的大小，第二个参数是力度施加的位置 
     ballBody.applyForce(new CANNON.Vec3(-12 * percentage.value - 100, 8 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
     setTimeout(() => {
-      cancelAnimationFrame(cameraViewID)
-      translateCamera( new THREE.Vector3(4, 2, 0), new THREE.Vector3(0, 0, 0))
-      isClick = false
+      isScore = true
+      if(viewFlag) {
+        cancelAnimationFrame(cameraViewID)
+        translateCamera( new THREE.Vector3(4, 2, 0), new THREE.Vector3(0, 0, 0))
+      }
+      isClick.value = false
       ballBody.position.set(0, 1, 0)
       ballBody.velocity.set(0, 0, 0)
       ballBody.angularVelocity.set(0, 0, 0)
@@ -154,11 +227,17 @@ const gameStart = () => {
   }
   // pc
   if(pc.value) {
-    window.addEventListener('mousedown', () => {
-      down()
+    window.addEventListener('mousedown', (e) => {
+      console.log(e.button);
+      if(e.button == 2) {
+        down()
+      }
     })
-    window.addEventListener("mouseup", () => {
-      up()
+    window.addEventListener("mouseup", (e) => {
+      console.log(e.button);
+      if(e.button == 2) {
+        up()
+      }
     })    
   } else {
     window.addEventListener('touchstart', () => {
@@ -169,41 +248,29 @@ const gameStart = () => {
     })    
   }
 
-  // let tween:gsap.core.Tween
-  // window.addEventListener('mousedown', () => {
-  //   if(isClick) return
-  //   percentage.value = Math.random() * 100
-  //   tween = gsap.to(percentage, {
-  //     duration: 0.8,
-  //     value: 100,
-  //     ease: 'linear',
-  //     repeat: -1,
-  //     onUpdate: () => {
-  //       percentage.value = Math.floor(percentage.value)
-  //     }
-  //   })
-  // })
-  // window.addEventListener("mouseup", () => {
-  //   tween.kill()
-  //   if(isClick) return
-  //   isClick = true
-  //   console.log(percentage.value)
-  //   console.log("Number of Triangles :", renderer.info.render.triangles)
-  //   console.log(world)
-  //   hitSound.volume = percentage.value / 100
-  //   hitSound.currentTime = 0
-  //   hitSound.play()
-  //   // 第一个参数力度的大小，第二个参数是力度施加的位置 
-  //   ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value - 100, 6 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
-  //   setTimeout(() => {
-  //     isClick = false
-  //     ballBody.position.set(0, 1, 0)
-  //     ballBody.velocity.set(0, 0, 0)
-  //     ballBody.angularVelocity.set(0, 0, 0)
-  //   }, 5000)
-  // })
 }
 
+const x: position = {
+    old: 4,
+    new: 4,
+    value: 4
+  }
+const y: position = {
+  old: 2,
+  new: 2,
+  value: 2
+}
+const z: position = {
+  old: 0,
+  new: 0,
+  value: 0
+}
+
+type position = {
+  old: number,
+  new: number,
+  value: number
+}
 
 // 使用补间动画移动相机
 const timeLine1 = gsap.timeline()
@@ -225,7 +292,6 @@ function translateCamera(position: THREE.Vector3, target: THREE.Vector3) {
     ease: 'power2.inOut'
   })
 }
-
 
 // 检测是否移动端
 function browserRedirect() {
@@ -256,6 +322,7 @@ let powerID: number
 //     }
 //   }, 10)
 // }
+// 力量条数值
 const powerLine = () => {
   if(percentage.value < 100) {
     percentage.value = percentage.value + 2
@@ -268,10 +335,11 @@ const powerLine = () => {
 // let stats = new Stats()
 // document.body.appendChild( stats.dom )
 
+// 得分
 let score = ref<number>(0)
 
 // 实例创建一个GUI
-const gui = new dat.GUI()
+// const gui = new dat.GUI()
 // 创建场景
 const scene = new THREE.Scene()
 // 创建相机
@@ -458,11 +526,6 @@ gltfLoader.load('./model/playground02.glb', (gltf: any) => {
       if(child.name === 'door') {
         doorID = trimeshBody.id
         child.material = doorMaterial
-        // const a = child.getWorldPosition(new THREE.Vector3());
-        // const b = child.getWorldQuaternion(new THREE.Vector3());
-        // console.log(a);
-        // console.log(b);
-        
       }
       // 添加刚体到物理世界
       world.addBody(trimeshBody)
@@ -481,35 +544,6 @@ gltfLoader.load('./model/playground02.glb', (gltf: any) => {
         shape: ballShape,
         material: ballMaterial
       })
-      // // 添加钢体到物理世界
-      // world.addBody(ballBody)
-      // let timer: number, isScore = true
-      // // 对足球刚体监听碰撞事件
-      // ballBody.addEventListener('collide', (e: any) => {
-      //   playHitSound(e, false)
-      //   // 节流计分 把足球丢场外
-      //   if(isScore && e.body.id === doorID) {
-      //     ballBody.position.set(0, -50, 0)
-      //     ballBody.velocity.set(0, 0, 0)
-      //     ballBody.angularVelocity.set(0, 0, 0)
-      //     score.value++
-      //     playHitSound(e, true)
-      //     isScore = false
-      //     // 中球特效
-      //     gsap.to(doorMaterial.color, {
-      //       r: 1,
-      //       g: 1,
-      //       b: 1,
-      //       duration: 0.8,
-      //       yoyo: true,
-      //       repeat: 3
-      //     })
-      //     timer = setTimeout(() => {
-      //       isScore = true
-      //       clearTimeout(timer)
-      //     }, 1800)
-      //   }
-      // })
     }
   })
   scene.add(model)
@@ -520,7 +554,6 @@ gltfLoader.load('./model/playground02.glb', (gltf: any) => {
  */
 const hitSound = new Audio('./sounds/football.wav')
 const scoreSound = new Audio('./sounds/score.wav')
-// const hitSound = new Audio('../assets/sounds/football.wav')
 const playHitSound = (collision: { contact: CANNON.ContactEquation }, score: boolean) => {
   if(score) {
     scoreSound.currentTime = 8
@@ -543,34 +576,6 @@ const doorMaterial = new THREE.MeshBasicMaterial({
 
 // 力度百分比
 let percentage = ref(0)
-
-// 添加坐标轴辅助器
-// const axesHelper = new THREE.AxesHelper(6)
-// scene.add(axesHelper)
-
-// let isClick = false
-// window.addEventListener('click', () => {
-//   if(isClick) return
-//   isClick = true
-//   console.log(percentage.value)
-//   console.log("Number of Triangles :", renderer.info.render.triangles)
-//   console.log(world)
-//   hitSound.volume = percentage.value / 100
-//   hitSound.currentTime = 0
-//   hitSound.play()
-//   // 第一个参数力度的大小，第二个参数是力度施加的位置 
-//   ballBody.applyForce(new CANNON.Vec3(-10 * percentage.value, 6 * percentage.value, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
-//   setTimeout(() => {
-//     isClick = false
-//     ballBody.position.set(0, 1, 0)
-//     ballBody.velocity.set(0, 0, 0)
-//     ballBody.angularVelocity.set(0, 0, 0)
-//   }, 5000)
-//   console.log(world.broadphase);
-// })
-
-console.log(world.hasAnyEventListener('ballBody'));
-
 
 </script>
 <style scoped>
@@ -643,5 +648,16 @@ console.log(world.hasAnyEventListener('ballBody'));
   position: fixed;
   top: 50px;
   left: 50px;
+}
+.view {
+  position: fixed;
+  top: 80px;
+  left: 20px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  background-color: #252525;
+  color: #fff;
+  font-weight: 700;
 }
 </style>

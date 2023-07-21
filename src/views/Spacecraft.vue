@@ -9,10 +9,10 @@
   </div>
   <div class="pages-box" ref="pages">
     <div class="page">
-      <h1 class="line" @click="toPage('christmas')">Dome1</h1>
+      <h1 class="line" @click="toPage('football')">足球小游戏</h1>
     </div>
     <div class="page">
-      <h1 class="line">Dome2</h1>
+      <h1 class="line" @click="toPage('christmas')">Dome2</h1>
     </div>
     <div class="page">
       <h1 class="line">Dome3</h1>
