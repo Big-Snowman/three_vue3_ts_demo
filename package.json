@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "cannon-es": "^0.20.0",
+    "cannon-es-debugger": "^1.0.0",
     "dat.gui": "^0.7.9",
     "gsap": "^3.12.2",
     "pinia": "^2.1.3",

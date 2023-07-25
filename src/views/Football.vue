@@ -28,6 +28,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 // import * as dat from 'dat.gui'
+// import CannonDebugger from 'cannon-es-debugger'
 
 const canvasDom = ref<HTMLElement | null>(null)
 const frameDom = ref<HTMLElement | null>(null)
@@ -210,7 +211,6 @@ const gameStart = () => {
         duration: 1
       })
     }
-
     // 第一个参数力度的大小，第二个参数是力度施加的位置 
     ballBody.applyForce(new CANNON.Vec3(-12 * percentage.value - 100, 8 * percentage.value + 6, (Math.random() - 0.7) * percentage.value * 2), ballBody.position)
     setTimeout(() => {
@@ -228,24 +228,22 @@ const gameStart = () => {
   // pc
   if(pc.value) {
     window.addEventListener('mousedown', (e) => {
-      console.log(e.button);
       if(e.button == 2) {
         down()
       }
     })
     window.addEventListener("mouseup", (e) => {
-      console.log(e.button);
       if(e.button == 2) {
         up()
       }
-    })    
+    })
   } else {
     window.addEventListener('touchstart', () => {
       down()
     })
     window.addEventListener("touchend", () => {
       up()
-    })    
+    })
   }
 
 }
@@ -384,7 +382,8 @@ const render = () => {
   // [maxSubSteps=10]：每个函数调用可执行的最大固定步骤数
   // * 设置更新物理世界world的步长timestep
   //  * 这里选用60Hz的速度，即1.0 / 60.0
-  world.step(1.0 / 60.0)
+  // world.step(1.0 / 60.0)
+  world.fixedStep()
   if(ball && ballBody) {
     // 2个库的 vector3 类型不完全相同，我们暂时使用 @ts-ignore 忽视掉 ts 报错
     // @ts-ignore
@@ -394,6 +393,8 @@ const render = () => {
   }
   renderer.render(scene, camera)
   controls.update()
+  // Update the CannonDebugger meshes
+  // cannonDebugger.update()
   // stats.update()
   requestAnimationFrame(render)
 }
@@ -450,9 +451,26 @@ const world = new CANNON.World()
 // 设置重力
 world.gravity.set(0, -9.82, 0)
 
+// npm install cannon-es-debugger
+// 加入 cannon-es-debugger 可以展示模型的物理世界的轮廓
+// scene: 场景
+// 物理世界
+// 第三个参数为可选参数，其中的的onInit方法返回场景中的每个刚体和对应的物理世界的轮廓的three mesh
+// const cannonDebugger = CannonDebugger(scene, world)
+// const cannonDebugger = CannonDebugger(scene, world, {
+//   onInit(body: CANNON.Body, mesh: THREE.Mesh) {
+//     // 
+//     mesh.visible = true
+//     console.log(body);
+//   },
+// })
+// 还要在每帧更新调用中更新    Update the CannonDebugger meshes
+//  cannonDebugger.update() 
+
+
 // 创建默认材质
 const defaultMaterial = new CANNON.Material('default')
-//创建塑料材质
+//创建足球材质
 const ballMaterial = new CANNON.Material('ball')
 // 定义两种材质之间的摩擦因数和弹力系数
 const defaultContactMaterial = new CANNON.ContactMaterial(defaultMaterial, ballMaterial, {
@@ -622,20 +640,15 @@ let percentage = ref(0)
   align-items: center;
 }
 .load {
-  /* background-color: #b6b6b6; */
   display: inline-block;
-  /* padding: 20px; */
   height: 80px;
-  /* padding: 8px 20px; */
   font-size: 39px;
   font-weight: 900;
-  /* border-radius: 20px; */
   color: #000;
 }
 .start {
   background-color: #b6b6b6;
   display: inline-block;
-  /* padding: 20px; */
   height: 80px;
   padding: 8px 20px;
   font-size: 39px;
